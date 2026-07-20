@@ -1,0 +1,47 @@
+<!--
+  Configuracion de WinSW para correr TechStore como Servicio de Windows (24/7).
+
+  PASOS:
+   1. Descarga WinSW (WinSW-x64.exe) desde https://github.com/winsw/winsw/releases
+   2. Copialo a C:\techstore\ y renombralo a  techstore-service.exe
+   3. Deja este archivo al lado con el nombre  techstore-service.xml
+   4. Ajusta las rutas y la contrasena de abajo (lineas marcadas con CAMBIAR)
+   5. Abre PowerShell como Administrador en C:\techstore y ejecuta:
+          .\techstore-service.exe install
+          .\techstore-service.exe start
+   6. Listo: arranca solo con Windows y sobrevive al cierre de RDP.
+
+  Comandos utiles:  status | stop | restart | uninstall
+-->
+<service>
+  <id>techstore</id>
+  <name>TechStore Inventory</name>
+  <description>Sistema de Control de Inventarios TechStore (Spring Boot)</description>
+
+  <!-- CAMBIAR: ruta al java.exe del JDK 21 instalado -->
+  <executable>C:\Program Files\Eclipse Adoptium\jdk-21\bin\java.exe</executable>
+
+  <!-- CAMBIAR: ruta al .jar. El perfil 'prod' activa application-prod.properties -->
+  <arguments>-jar "C:\techstore\tech-store-project.jar" --spring.profiles.active=prod</arguments>
+
+  <workingdirectory>C:\techstore</workingdirectory>
+
+  <!-- Credenciales de la BD (las lee application-prod.properties) -->
+  <env name="DB_URL" value="jdbc:postgresql://localhost:5432/techstore_db"/>
+  <env name="DB_USERNAME" value="admin_techstore"/>
+  <!-- CAMBIAR: la contrasena real de PostgreSQL -->
+  <env name="DB_PASSWORD" value="CAMBIA_ESTA_CONTRASENA"/>
+
+  <!-- Si el proceso se cae, reiniciarlo automaticamente -->
+  <onfailure action="restart" delay="10 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- Arranca automaticamente al encender el servidor -->
+  <startmode>Automatic</startmode>
+
+  <!-- Logs rotados por tamano -->
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

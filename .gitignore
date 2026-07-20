@@ -1,0 +1,72 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.backup
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+.c9/
+*.launch
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Build & Runtime
+*.class
+*.jar
+*.war
+*.rar
+*.log
+*.out
+hsql/
+.gradle/
+build/
+
+# Spring Boot (perfiles locales/secretos; el perfil 'prod' SÍ se versiona: usa variables de entorno)
+application-*.properties
+application-*.yml
+!application-prod.properties
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Batch files
+*.bat
+
+# Database & Temporary
+*.db
+*.sqlite
+*.backup
+*.tmp
+
+# Others
+node_modules/
+npm-debug.log
+dist/
+
+# Frontend React
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.vite/
