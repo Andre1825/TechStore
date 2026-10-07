@@ -1,0 +1,37 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadDeploymentArtifacts",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::BUCKET_NAME/artefactos/*"
+    },
+    {
+      "Sid": "ListLabPrefixes",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::BUCKET_NAME",
+      "Condition": { "StringLike": { "s3:prefix": [ "artefactos/*", "backups/*" ] } }
+    },
+    {
+      "Sid": "WriteLabBackups",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::BUCKET_NAME/backups/*"
+    },
+    {
+      "Sid": "StockNotifications",
+      "Effect": "Allow",
+      "Action": [ "sns:Publish", "sns:Subscribe" ],
+      "Resource": "arn:aws:sns:us-east-1:123456789012:techstore-stock-bajo"
+    },
+    {
+      "Sid": "EncryptSnsMessages",
+      "Effect": "Allow",
+      "Action": [ "kms:GenerateDataKey", "kms:Decrypt" ],
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/SNS_KMS_KEY_ID",
+      "Condition": { "StringEquals": { "kms:ViaService": "sns.us-east-1.amazonaws.com" } }
+    }
+  ]
+}

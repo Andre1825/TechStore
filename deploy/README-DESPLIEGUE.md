@@ -57,8 +57,8 @@ CREATE DATABASE techstore_db OWNER admin_techstore;
 \q
 ```
 
-Las tablas, el rol admin y los datos de ejemplo se crean solos en el primer arranque.
-Usuario inicial de la app: **admin / 123456** (cambiar de inmediato tras el primer login).
+Las tablas y los roles se crean en el primer arranque. En producción no se carga el catálogo de ejemplo.
+Define `ADMIN_PASSWORD` en el entorno del servicio antes del primer arranque: contraseña única de al menos 12 caracteres (máximo 72 bytes UTF-8). Usuario inicial: **admin**, con la contraseña elegida. Puedes cambiarla desde **Mi Perfil**; no se reemplazan cuentas existentes al reiniciar.
 
 ---
 
@@ -68,6 +68,7 @@ Usuario inicial de la app: **admin / 123456** (cambiar de inmediato tras el prim
 2. Crea `C:\techstore\techstore-service.xml` (ver `deploy/techstore-service.xml` como plantilla). Ajusta:
    - Ruta real de `java.exe` (ej. `C:\Program Files\Common Files\Oracle\Java\javapath\java.exe`).
    - `DB_PASSWORD` = la contraseña de `admin_techstore`.
+   - `ADMIN_PASSWORD` en el entorno del servicio para crear el administrador cuando la base está vacía; no guardes su valor real en el repositorio.
 3. PowerShell **como Administrador** en `C:\techstore`:
 
 ```powershell
@@ -194,7 +195,7 @@ Register-ScheduledTask -TaskName "nginx" -Action $action -Trigger $trigger -Prin
 
 ## Checklist final
 - [ ] `https://techstore.moonlygg.com` carga con candado y permite login
-- [ ] Contraseña del usuario `admin` **cambiada**
+- [ ] Contraseña única del usuario `admin` configurada y cambio desde Mi Perfil comprobado
 - [ ] `Get-Service *postgresql*` → Running / Automatic
 - [ ] Servicio `techstore` en estado Started
 - [ ] Tarea `nginx` con `<BootTrigger/>` y usuario SYSTEM

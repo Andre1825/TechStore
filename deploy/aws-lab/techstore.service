@@ -1,0 +1,23 @@
+[Unit]
+Description=TechStore inventory application
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=techstore
+Group=techstore
+WorkingDirectory=/opt/techstore
+EnvironmentFile=/etc/techstore/techstore.env
+ExecStart=/usr/bin/java -Xms128m -Xmx512m -jar /opt/techstore/techstore.jar
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

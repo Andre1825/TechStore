@@ -50,6 +50,12 @@ application-*.yml
 .env
 .env.local
 .env.*.local
+techstore.env
+.aws/
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Batch files
 *.bat

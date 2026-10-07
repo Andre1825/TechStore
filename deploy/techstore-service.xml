@@ -31,6 +31,8 @@
   <env name="DB_USERNAME" value="admin_techstore"/>
   <!-- CAMBIAR: la contrasena real de PostgreSQL -->
   <env name="DB_PASSWORD" value="CAMBIA_ESTA_CONTRASENA"/>
+  <!-- Define ADMIN_PASSWORD en el entorno del servicio para el primer arranque.
+       No escribas aquí una contraseña real en el repositorio. -->
 
   <!-- Si el proceso se cae, reiniciarlo automaticamente -->
   <onfailure action="restart" delay="10 sec"/>

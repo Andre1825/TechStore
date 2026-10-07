@@ -1,268 +1,214 @@
-# STG Inventory Control System
+# TechStore · Gestión de inventario
 
-> Sistema web de **gestión y control de inventarios** para la empresa **STG Technology & Logistics S.A.C.**
+Aplicación web académica para gestionar el inventario de **STG Technology & Logistics S.A.C.** Permite administrar el catálogo, registrar entradas y salidas con Kardex, consultar indicadores y exportar datos a Excel.
 
-Arquitectura desacoplada: **SPA en React** (frontend) + **API REST en Spring Boot** (backend) sobre **PostgreSQL**.
+El frontend utiliza **React 19** y el backend **Java 21 / Spring Boot 4** con **PostgreSQL**. Incluye una integración opcional con **Amazon SNS** para avisos de stock bajo y una guía de laboratorio de cuatro horas con **EC2, RDS, S3 y SNS**.
 
-<p>
-  <img alt="Java" src="https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white">
-  <img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-4-6DB33F?logo=springboot&logoColor=white">
-  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black">
-  <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white">
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/Licencia-Académica-lightgrey">
-</p>
+## Funcionalidades
 
----
+- Productos, categorías y marcas; validación de SKU y estados del catálogo.
+- Entradas y salidas con usuario, fecha, cantidades, documentos y observaciones.
+- Actualización de stock y registro del movimiento en una sola transacción, con bloqueo del producto para controlar operaciones simultáneas.
+- Precios e historial con `BigDecimal` y columnas `NUMERIC(12,2)`.
+- Dashboard con totales, valor del inventario, gráficos y listado de stock bajo.
+- Usuarios, roles y permisos por módulo; exportaciones a Excel protegidas por permisos.
+- Mi Perfil: edición de nombre y correo, cambio de contraseña y preferencias de avisos.
+- Avisos SNS por correo cuando una salida cruza el umbral de stock mínimo.
 
-## 📑 Tabla de contenidos
+## Arquitectura
 
-- [Descripción](#-descripción)
-- [Arquitectura](#-arquitectura)
-- [Stack tecnológico](#-stack-tecnológico)
-- [Prerequisitos](#-prerequisitos)
-- [Puesta en marcha (desarrollo)](#-puesta-en-marcha-desarrollo)
-- [Build de producción](#-build-de-producción)
-- [Usuario por defecto](#-usuario-por-defecto)
-- [API REST](#-api-rest-resumen)
-- [Estructura del proyecto](#-estructura-del-proyecto)
-- [Características destacadas](#-características-destacadas)
-- [Tests](#-tests)
-- [Despliegue](#-despliegue)
-- [Autores](#-autores)
-- [Licencia](#-licencia)
+En desarrollo, Vite redirige `/api` y `/export` al backend. En el build de producción, React se incorpora al mismo JAR que Spring Boot.
 
----
-
-## 📋 Descripción
-
-Aplicación que optimiza el control de inventarios de una tienda de tecnología, garantizando:
-
-- ✅ **Trazabilidad completa** de entradas y salidas de mercadería.
-- ✅ **Registro inalterable** en Kardex para auditoría.
-- ✅ **Precisión del stock** en tiempo real.
-- ✅ **Alertas automáticas** de reabastecimiento (stock bajo).
-- ✅ **Gestión de usuarios** con roles (Administrador, Almacenero, Vendedor).
-
----
-
-## 🏗️ Arquitectura
-
-```
-┌──────────────────────┐        /api/*  (JSON)        ┌──────────────────────────┐
-│   Frontend (React)   │ ───────────────────────────► │   Backend (Spring Boot)  │
-│   Vite · puerto 5173 │ ◄─────────────────────────── │   API REST · puerto 8080 │
-└──────────────────────┘        sesión (cookie)       └────────────┬─────────────┘
-                                                                    │ JPA / Hibernate
-                                                                    ▼
-                                                          ┌──────────────────┐
-                                                          │   PostgreSQL 15  │
-                                                          │   (Docker)       │
-                                                          └──────────────────┘
+```mermaid
+flowchart LR
+    B["Navegador · React"] <-->|HTTPS| E["EC2 · Nginx + Spring Boot"]
+    E <-->|"JDBC / TLS"| R["RDS · PostgreSQL"]
+    S["S3 · JAR y archivos del laboratorio"] -.->|"Descarga durante despliegue"| E
+    E -->|"Evento después del commit"| N["SNS · Tema de stock bajo"]
+    N -->|"Suscripción confirmada"| A["Correo del administrador"]
 ```
 
-- **React** renderiza toda la interfaz en el navegador.
-- **Spring Boot** expone únicamente endpoints REST (`/api/*`) que devuelven JSON.
-- La autenticación usa **sesión HTTP + cookies** (Spring Security), compartida entre login y llamadas del SPA.
-- En desarrollo, Vite hace **proxy** de `/api` y `/export` hacia el backend (sin CORS).
-- En producción, el frontend se compila y se empaqueta **dentro del mismo `.jar`** (ver [Build de producción](#-build-de-producción)).
+Este diagrama representa el despliegue de la guía. S3 almacena archivos; el frontend se sirve desde EC2. Los registros del catálogo y los movimientos se guardan en PostgreSQL.
 
----
+## Tecnologías
 
-## 🛠️ Stack tecnológico
+| Área | Tecnologías |
+|---|---|
+| Backend | Java 21, Spring Boot 4.0.6, Spring Web, Spring Security, Bean Validation |
+| Persistencia | Spring Data JPA, Hibernate, PostgreSQL 15 en desarrollo |
+| Frontend | React 19, Vite 6, React Router 7, Bootstrap 5, Font Awesome 6 |
+| Gráficos y reportes | Chart.js, react-chartjs-2, Apache POI |
+| AWS | SDK Java v2 para SNS; plantillas de IAM, systemd y Nginx para el laboratorio |
+| Herramientas | Maven Wrapper, npm con lockfile, Docker Compose para PostgreSQL local |
 
-### Backend
-- **Java 21** · **Spring Boot 4**
-- **Spring Web** (API REST) · **Spring Security** (auth, roles, BCrypt)
-- **Spring Data JPA** / Hibernate
-- **PostgreSQL 15**
-- **Apache POI** (exportación a Excel `.xlsx`)
-- **Maven** (con wrapper `./mvnw`)
+## Inicio local
 
-### Frontend
-- **React 19** · **Vite 6**
-- **React Router 7** (navegación SPA con rutas protegidas por rol)
-- **Bootstrap 5** · **Font Awesome 6** (estilos e iconos)
-- **Chart.js 4** + **react-chartjs-2** (gráficas del dashboard)
+Requisitos: **JDK 21 o superior**, **Node.js 20 o superior** y Docker Compose, o PostgreSQL local con la configuración equivalente.
 
----
+### 1. Obtener el proyecto y levantar PostgreSQL
 
-## 📦 Prerequisitos
-
-| Herramienta | Versión mínima | Notas |
-|-------------|----------------|-------|
-| Java (JDK)  | 21             | Para el backend |
-| Node.js + npm | 18            | Para el frontend |
-| Docker      | —              | Para PostgreSQL (o una instancia local de PostgreSQL 15) |
-| Maven       | 3.9            | Opcional: el wrapper `./mvnw` ya viene incluido |
-
----
-
-## 🚀 Puesta en marcha (desarrollo)
-
-### 1. Clonar el repositorio
 ```bash
-git clone https://github.com/swiftdeskk/stg-inventory-control.git
-cd stg-inventory-control
-```
-
-### 2. Levantar la base de datos (Docker)
-```bash
+git clone https://github.com/Andre1825/TechStore.git
+cd TechStore
 docker compose up -d
 ```
-Crea PostgreSQL con la base `techstore_db` (usuario `admin_techstore` / `password123`).
-La configuración vive en [`src/main/resources/application.properties`](src/main/resources/application.properties).
 
-### 3. Levantar el backend (API REST — puerto 8080)
+El contenedor crea `techstore_db` en el puerto `5432`. Las credenciales de ejemplo de `docker-compose.yml` y `application.properties` son exclusivamente para desarrollo local.
+
+### 2. Definir la contraseña inicial
+
+Antes del primer arranque, define `ADMIN_PASSWORD`: mínimo **12 caracteres** y máximo **72 bytes UTF-8**. Se usa para crear `admin` si todavía no hay usuarios; no cambia la contraseña de cuentas existentes.
+
+En **PowerShell**, solicita el valor sin escribirlo en el historial:
+
+```powershell
+$bootstrapSecret = Read-Host 'Contraseña inicial de admin' -AsSecureString
+$env:ADMIN_PASSWORD = [System.Net.NetworkCredential]::new('', $bootstrapSecret).Password
+.\mvnw.cmd spring-boot:run
+```
+
+En **Bash**:
+
 ```bash
+read -r -s -p 'Contraseña inicial de admin: ' ADMIN_PASSWORD
+printf '\n'
+export ADMIN_PASSWORD
 ./mvnw spring-boot:run
 ```
-En el primer arranque se crean los roles y el usuario administrador por defecto.
 
-### 4. Levantar el frontend (React — puerto 5173)
+El backend escucha en `http://localhost:8080`. El entorno de desarrollo puede cargar categorías, marcas y productos de ejemplo; para omitirlos utiliza `--techstore.seed-demo-data=false` como argumento de la aplicación.
+
+### 3. Iniciar React en otra terminal
+
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-### 5. Abrir la aplicación
-Navega a **http://localhost:5173**
+Abre **http://localhost:5173** e inicia sesión con `admin` y la contraseña elegida. Desde Usuarios puedes crear las demás cuentas.
 
----
+**En producción no se carga el catálogo de demostración.** RDS es una base separada de tu PostgreSQL local: desplegar el JAR no copia sus registros.
 
-## 🏭 Build de producción
+## Seguridad
 
-Un único comando compila el frontend React y lo empaqueta **dentro del `.jar`** del backend (frontend + API autocontenidos):
+- Contraseñas almacenadas mediante hash BCrypt; sin contraseña inicial fija.
+- Bloqueo tras tres intentos de acceso fallidos y sesión con 15 minutos de inactividad máxima.
+- Protección CSRF en login, logout y modificaciones. React obtiene el token en `GET /api/auth/csrf` y lo envía en las peticiones de escritura.
+- Rotación del identificador de sesión al autenticar y revocación al cambiar contraseñas, bloquear cuentas o modificar roles/permisos.
+- Autorización por permisos de módulo, también para exportaciones.
+- Validación de cantidades enteras, importes, tamaños de texto y referencias del catálogo.
+- Perfil `prod` con cookie `Secure`, `HttpOnly` y acceso mediante proxy HTTPS.
+
+Si una base antigua conserva `admin / 123456`, cambia esa contraseña desde Mi Perfil en desarrollo antes de activar `prod`: el arranque de producción rechaza ese acceso conocido.
+
+## Avisos de stock por correo
+
+Con SNS habilitado, una cuenta activa con `GESTIONAR_USUARIOS` puede guardar su correo en **Mi Perfil → Editar datos**, solicitar los avisos y confirmar la suscripción desde el mensaje de Amazon SNS.
+
+La aplicación publica después de confirmar una **salida** que pasa de stock superior al mínimo a stock menor o igual al mínimo, siempre que el mínimo sea positivo. Por ejemplo, con mínimo `3`, pasar de `10` a `3` dispara un aviso; pasar después de `3` a `2` no repite el aviso. Reponer por encima del mínimo permite un nuevo aviso al cruzarlo otra vez.
+
+Cambiar el correo desactiva la preferencia y exige una nueva solicitud. Los mensajes se filtran por destinatario. El botón de solicitud no acredita que el usuario haya confirmado el correo. No se envían avisos retroactivos al activar la función ni al editar el mínimo.
+
+| Variable | Valor / propósito |
+|---|---|
+| `SNS_ENABLED` | `false` por defecto; `true` para habilitar SNS |
+| `AWS_REGION` | Región del tema, por defecto `us-east-1` |
+| `SNS_TOPIC_ARN` | ARN de un tema SNS Standard en esa región |
+
+En EC2, el SDK utiliza las credenciales temporales del **rol IAM de la instancia**. Los permisos y la configuración se detallan en la guía AWS.
+
+## Compilar y desplegar
 
 ```bash
-./mvnw clean package -Pprod -DskipTests
+./mvnw package -Pprod -DskipTests
 ```
 
-Genera `target/tech-store-project-0.0.1-SNAPSHOT.jar`. Para ejecutarlo:
+En Windows usa `.\mvnw.cmd`. El perfil Maven `prod` instala Node en `target/`, ejecuta `npm ci`, compila React y produce:
+
+```text
+target/tech-store-project-0.0.1-SNAPSHOT.jar
+```
+
+`-DskipTests` omite la ejecución de las pruebas; este comando es de empaquetado. El perfil Maven de build y el perfil Spring de ejecución se activan por separado:
 
 ```bash
 java -jar target/tech-store-project-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-> El perfil `prod` ([`application-prod.properties`](src/main/resources/application-prod.properties)) lee las credenciales de la BD desde **variables de entorno** (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`) y endurece la cookie de sesión (HTTPS-only). **Nunca** escribas contraseñas reales en el repositorio.
+Configura previamente `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` y, para una base sin usuarios, `ADMIN_PASSWORD`. El acceso web con `prod` requiere HTTPS; para RDS, la guía configura JDBC con TLS y verificación del certificado.
 
----
+| Documentación | Contenido |
+|---|---|
+| [Laboratorio AWS de cuatro horas](deploy/GUIA-AWS-4-HORAS.md) | EC2 + RDS + S3 + SNS: consola, comandos, IAM, HTTPS, prueba funcional y limpieza |
+| [Plantillas AWS](deploy/aws-lab/) | Servicio systemd, proxy Nginx, variables de ejemplo y políticas IAM/S3 |
+| [Configuración y alcance de las mejoras](deploy/MEJORAS-SEGURIDAD.md) | Bootstrap, sesiones, validaciones, verificaciones y pendientes |
+| [Despliegue en Windows Server](deploy/README-DESPLIEGUE.md) | Nginx, HTTPS y servicio con WinSW |
 
-## 👤 Usuario por defecto
+Las plantillas AWS requieren sustituir el ID de cuenta de ejemplo `123456789012`, bucket, ARN y demás marcadores por los de tu entorno. El laboratorio contempla una instancia de aplicación y RDS Single-AZ; no proporciona alta disponibilidad.
 
-Al iniciar el backend por primera vez se crea automáticamente:
+## API principal
 
-| Usuario | Contraseña | Rol   |
-|---------|------------|-------|
-| `admin` | `123456`   | ADMIN |
+Los roles agrupan permisos configurables. Los permisos indicados abajo corresponden a las restricciones del backend.
 
-> ⚠️ **Cambia esta contraseña inmediatamente** tras el primer login en cualquier entorno accesible.
+| Recurso | Rutas principales | Acceso |
+|---|---|---|
+| Sesión | `GET /api/auth/csrf`, `POST /api/auth/login`, `POST /api/auth/logout` | Público; escrituras con CSRF |
+| Perfil | `GET /api/auth/me`, `PUT /api/auth/profile`, `POST /api/auth/password` | Cuenta autenticada |
+| Avisos | `POST /api/auth/stock-alerts/subscribe`, `DELETE /api/auth/stock-alerts` | `GESTIONAR_USUARIOS` |
+| Catálogo | `/api/categorias`, `/api/marcas`, `/api/productos` | Lectura autenticada; escritura con permiso de gestión del módulo |
+| Entradas | `/api/entradas` | `REGISTRAR_ENTRADAS` |
+| Salidas | `/api/salidas` | `REGISTRAR_SALIDAS` |
+| Kardex | `/api/movimientos` | `VER_MOVIMIENTOS` |
+| Dashboard | `/api/dashboard` | `VER_DASHBOARD` |
+| Administración | `/api/usuarios`, `/api/roles` | `GESTIONAR_USUARIOS` / `GESTIONAR_ROLES` |
+| Excel | `/export/productos.xlsx`, `/export/movimientos.xlsx` | `GESTIONAR_PRODUCTOS` / `VER_MOVIMIENTOS` |
 
-Los usuarios **Almacenero** y **Vendedor** se crean desde el módulo *Usuarios* con la cuenta de administrador.
+## Verificación y pendientes
 
----
-
-## 🔌 API REST (resumen)
-
-| Recurso        | Endpoints principales                                                        | Acceso                          |
-|----------------|------------------------------------------------------------------------------|---------------------------------|
-| Autenticación  | `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me`        | Público / autenticado           |
-| Dashboard      | `GET /api/dashboard` · `GET /api/dashboard/stock-bajo[/count]`               | Autenticado                     |
-| Categorías     | `GET/POST/PUT/DELETE /api/categorias` · `POST /api/categorias/{id}/estado`   | ADMIN, ALMACENERO               |
-| Marcas         | `GET/POST/PUT/DELETE /api/marcas` · `POST /api/marcas/{id}/estado`           | ADMIN, ALMACENERO               |
-| Productos      | `GET /api/productos[/activos]` · `POST/PUT/DELETE` · `GET /validar-sku`      | Lectura: autenticado · Escritura: ADMIN, ALMACENERO |
-| Entradas       | `GET/POST /api/entradas`                                                     | ADMIN, ALMACENERO               |
-| Salidas        | `GET/POST /api/salidas`                                                      | ADMIN, ALMACENERO, VENDEDOR     |
-| Movimientos    | `GET /api/movimientos`                                                       | Autenticado                     |
-| Usuarios       | `GET/POST/PUT /api/usuarios` · `POST /api/usuarios/{id}/bloqueo`             | ADMIN                           |
-| Roles          | `GET /api/roles[/activos]` · `POST/PUT`                                      | ADMIN                           |
-| Exportación    | `GET /export/productos.xlsx` · `GET /export/movimientos.xlsx`               | Autenticado                     |
-
-Respuestas de error uniformes en JSON: `{ "mensaje": "..." }` con el código HTTP correspondiente (400/401/403/500).
-
----
-
-## 📂 Estructura del proyecto
-
-```
-stg-inventory-control/
-├── docker-compose.yml              # PostgreSQL para desarrollo
-├── pom.xml                         # Backend (Maven) + perfil 'prod'
-├── mvnw / mvnw.cmd                 # Maven Wrapper
-├── deploy/                         # Guía y plantilla de despliegue en Windows Server
-├── src/
-│   ├── main/java/com/techstore/tech_store_project/
-│   │   ├── controller/
-│   │   │   ├── api/                # @RestController — endpoints /api/* (JSON)
-│   │   │   └── ExportController.java   # Exportación a Excel (.xlsx)
-│   │   ├── model/                  # Entidades JPA
-│   │   ├── repository/             # Repositorios Spring Data
-│   │   ├── service/                # Lógica de negocio y listeners de login
-│   │   └── config/                 # SecurityConfig, DataInitializer, SPA, errores
-│   ├── main/resources/
-│   │   ├── application.properties       # Config de desarrollo
-│   │   └── application-prod.properties   # Config de producción (variables de entorno)
-│   └── test/                       # Tests (JUnit + Spring Boot Test)
-└── frontend/                       # SPA React (Vite)
-    ├── package.json
-    ├── vite.config.js              # Proxy /api y /export → :8080
-    └── src/
-        ├── api/                    # Cliente HTTP central
-        ├── context/                # Auth y tema (claro/oscuro)
-        ├── components/             # Layout, Navbar, Sidebar, Modal, Toast…
-        └── pages/                  # Login, Dashboard, Productos, Categorías…
-```
-
----
-
-## 🔑 Características destacadas
-
-### Seguridad
-- Contraseñas cifradas con **BCrypt**.
-- **Bloqueo de cuenta** tras 3 intentos fallidos.
-- Control de acceso por **roles** (ADMIN / ALMACENERO / VENDEDOR).
-- Timeout automático de sesión tras 15 minutos de inactividad.
-- API sin estado de vistas: respuestas **401/403 en JSON**.
-
-### Kardex (movimientos)
-- Registro **inalterable** de entradas y salidas.
-- Trazabilidad: fecha, hora, usuario, producto y cantidad.
-- Validación de stock disponible en las salidas.
-- Consulta e historial con filtros.
-
-### Dashboard
-- Totales de productos, categorías, marcas, entradas y salidas.
-- Valor total del inventario.
-- Gráfica de productos por categoría y movimientos por mes.
-- **Alertas de stock bajo** en tiempo real.
-
----
-
-## 🧪 Tests
+La suite versionada contiene una prueba de carga del contexto Spring. Requiere PostgreSQL disponible y la configuración de bootstrap correspondiente:
 
 ```bash
 ./mvnw test
 ```
 
----
+Durante la implementación se realizaron **88 comprobaciones locales auxiliares**: 75 de API/inventario con H2 temporal y SNS simulado, 7 de transporte/configuración SNS sin llamadas AWS y 6 de arranque en producción. Cubrieron permisos, CSRF, revocación, concurrencia, rollback, perfil y umbrales de avisos. Esos verificadores temporales no forman parte de la suite versionada; H2 no sustituye una validación con PostgreSQL/RDS.
 
-## 🌐 Despliegue
+Pendientes para evolucionar el proyecto:
 
-Para un despliegue real en **Windows Server** (Nginx como reverse proxy + HTTPS con Let's Encrypt, la app como servicio de Windows con WinSW), consulta la guía paso a paso en [`deploy/README-DESPLIEGUE.md`](deploy/README-DESPLIEGUE.md).
+- Incorporar migraciones de esquema y pruebas automatizadas de integración reproducibles; actualmente se mantiene `ddl-auto=update`. Respaldar bases existentes antes de actualizar las columnas de precio.
+- Coordinar sesiones entre instancias antes de escalar horizontalmente; el registro actual reside en un proceso Java.
+- Añadir entrega duradera de avisos y reintentos persistentes: la cola actual es local y los fallos se registran. SNS Standard puede entregar duplicados.
+- Resolver las alertas de dependencias frontend reportadas en la revisión previa; esa actualización permanece pendiente.
+- Verificar esquema y flujo de correo en el entorno PostgreSQL/RDS/SNS de cada despliegue.
 
----
+## Estructura
 
-## 👨‍💻 Autores
+```text
+TechStore/
+├── docker-compose.yml
+├── pom.xml
+├── mvnw / mvnw.cmd
+├── src/main/java/com/techstore/tech_store_project/
+│   ├── config/          # Seguridad, bootstrap y configuración AWS
+│   ├── controller/      # API REST y exportaciones
+│   ├── dto/             # Solicitudes validadas
+│   ├── model/           # Entidades JPA
+│   ├── notification/    # Eventos y transporte SNS
+│   ├── repository/      # Persistencia y bloqueos
+│   └── service/         # Inventario, usuarios y avisos
+├── src/main/resources/  # Configuración Spring
+├── src/test/            # Prueba de contexto
+├── frontend/src/        # SPA React
+└── deploy/              # Guías y plantillas de despliegue
+```
+
+## Autores
 
 - Quispe Sánchez Juan André
 - Mauricio Lopez Sebastian Alessandro
 - Salazar Bustamante Angelo Gianpiero
 - Cerna Martinez Arian
 - Sullcapuma Bustamante Jaren John
-
----
-
-## 📄 Licencia
 
 Proyecto académico — UTP 2026.
