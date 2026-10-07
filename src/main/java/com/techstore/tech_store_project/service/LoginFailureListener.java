@@ -10,9 +10,11 @@ import org.springframework.stereotype.Component;
 public class LoginFailureListener {
 
     private final UsuarioRepository usuarioRepository;
+    private final SessionRevocationService sessionRevocationService;
 
-    public LoginFailureListener(UsuarioRepository usuarioRepository) {
+    public LoginFailureListener(UsuarioRepository usuarioRepository, SessionRevocationService sessionRevocationService) {
         this.usuarioRepository = usuarioRepository;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     // RF-02: Bloqueo por intentos fallidos - Bloquear cuenta tras 3 intentos fallidos
@@ -27,6 +29,7 @@ public class LoginFailureListener {
                 // RF-02: Si alcanza 3 intentos fallidos, bloquear cuenta
                 if (usuario.getIntentosFallidos() >= 3) {
                     usuario.setCuentaBloqueada(true);
+                    sessionRevocationService.revocar(username);
                 }
                 usuarioRepository.save(usuario);
             }

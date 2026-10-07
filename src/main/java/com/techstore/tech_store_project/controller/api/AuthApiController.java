@@ -1,6 +1,15 @@
 package com.techstore.tech_store_project.controller.api;
 
 import com.techstore.tech_store_project.service.AuthService;
+import com.techstore.tech_store_project.service.UsuarioService;
+import com.techstore.tech_store_project.dto.LoginRequest;
+import com.techstore.tech_store_project.dto.CambioPasswordRequest;
+import com.techstore.tech_store_project.dto.PerfilRequest;
+import com.techstore.tech_store_project.service.StockAlertService;
+import jakarta.validation.Valid;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -30,25 +39,44 @@ public class AuthApiController {
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
     private final AuthService authService;
+    private final UsuarioService usuarioService;
+    private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
+    private final CsrfTokenRepository csrfTokenRepository;
+    private final StockAlertService stockAlertService;
 
     public AuthApiController(AuthenticationManager authenticationManager,
                              SecurityContextRepository securityContextRepository,
-                             AuthService authService) {
+                             AuthService authService, UsuarioService usuarioService,
+                             SessionAuthenticationStrategy sessionAuthenticationStrategy,
+                             CsrfTokenRepository csrfTokenRepository, StockAlertService stockAlertService) {
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.authService = authService;
+        this.usuarioService = usuarioService;
+        this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
+        this.csrfTokenRepository = csrfTokenRepository;
+        this.stockAlertService = stockAlertService;
+    }
+
+    @GetMapping("/csrf")
+    public Map<String, String> csrf(CsrfToken token, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        return Map.of("token", token.getToken(), "headerName", token.getHeaderName());
     }
 
     // RF-01: Validar credenciales contra la BD (mismo AuthenticationManager que el login web)
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body,
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest body,
                                    HttpServletRequest request,
                                    HttpServletResponse response) {
-        String username = body.getOrDefault("username", "").trim();
-        String password = body.getOrDefault("password", "");
+        String username = body.username().trim();
+        String password = body.password();
         try {
             Authentication auth = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(username, password));
+
+            // Rotar el identificador de sesión, renovar CSRF y registrar la sesión para revocarla.
+            sessionAuthenticationStrategy.onAuthentication(auth, request, response);
 
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(auth);
@@ -70,11 +98,40 @@ public class AuthApiController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request) {
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        csrfTokenRepository.saveToken(null, request, response);
         HttpSession session = request.getSession(false);
         if (session != null) session.invalidate();
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    @PostMapping("/password")
+    public ResponseEntity<?> cambiarPassword(@Valid @RequestBody CambioPasswordRequest body,
+                                            Authentication auth, HttpServletRequest request) {
+        usuarioService.cambiarPassword(auth.getName(), body.passwordActual(), body.passwordNueva());
+        HttpSession session = request.getSession(false);
+        if (session != null) session.invalidate();
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada. Vuelve a iniciar sesión."));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> actualizarPerfil(@Valid @RequestBody PerfilRequest body, Authentication auth) {
+        usuarioService.actualizarPerfil(auth.getName(), body);
+        return ResponseEntity.ok(authService.buildMe(auth.getName()));
+    }
+
+    @PostMapping("/stock-alerts/subscribe")
+    public ResponseEntity<?> activarAvisos(Authentication auth) {
+        stockAlertService.activar(auth.getName());
+        return ResponseEntity.ok(Map.of("mensaje", "Solicitud registrada. Confirma la suscripción en el correo de Amazon SNS si aún no lo has hecho."));
+    }
+
+    @DeleteMapping("/stock-alerts")
+    public ResponseEntity<?> desactivarAvisos(Authentication auth) {
+        stockAlertService.desactivar(auth.getName());
+        return ResponseEntity.ok(Map.of("mensaje", "Avisos de stock desactivados para esta cuenta."));
     }
 
     // Usuario autenticado actual (para restaurar sesión al recargar la SPA)

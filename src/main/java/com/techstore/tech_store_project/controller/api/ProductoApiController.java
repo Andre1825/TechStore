@@ -1,6 +1,8 @@
 package com.techstore.tech_store_project.controller.api;
 
 import com.techstore.tech_store_project.service.ProductoService;
+import com.techstore.tech_store_project.dto.ProductoRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -37,13 +39,13 @@ public class ProductoApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> crear(@Valid @RequestBody ProductoRequest body) {
         return ResponseEntity.ok(productoService.crear(body));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(@PathVariable Long id,
-                                        @RequestBody Map<String, Object> body,
+                                        @Valid @RequestBody ProductoRequest body,
                                         Authentication auth) {
         String username = auth != null ? auth.getName() : null;
         return ResponseEntity.ok(productoService.actualizar(id, body, username));

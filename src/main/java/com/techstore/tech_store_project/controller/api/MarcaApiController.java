@@ -4,6 +4,7 @@ import com.techstore.tech_store_project.model.Marca;
 import com.techstore.tech_store_project.service.MarcaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -27,12 +28,12 @@ public class MarcaApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Marca marca) {
+    public ResponseEntity<?> crear(@Valid @RequestBody Marca marca) {
         return ResponseEntity.ok(marcaService.crear(marca));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Marca cambios) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody Marca cambios) {
         return ResponseEntity.ok(marcaService.actualizar(id, cambios));
     }
 

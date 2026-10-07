@@ -152,24 +152,25 @@ export default function Usuarios() {
               <div className="row g-3 mb-3">
                 <div className="col-12 col-md-6">
                   <label className="form-label">Usuario *</label>
-                  <input type="text" className="form-control" value={modal.form.username} required autoFocus
+                  <input type="text" className="form-control" value={modal.form.username} required autoFocus maxLength={100}
                          onChange={e => setForm({ username: e.target.value })} />
                 </div>
                 <div className="col-12 col-md-6">
                   <label className="form-label">Contraseña *</label>
-                  <input type="password" className="form-control" value={modal.form.password} required
+                  <input type="password" className="form-control" value={modal.form.password} required minLength={12} maxLength={72}
+                         autoComplete="new-password"
                          onChange={e => setForm({ password: e.target.value })} />
                 </div>
               </div>
             )}
             <div className="mb-3">
               <label className="form-label">Nombre Completo</label>
-              <input type="text" className="form-control" value={modal.form.nombreCompleto}
+              <input type="text" className="form-control" value={modal.form.nombreCompleto} maxLength={255}
                      onChange={e => setForm({ nombreCompleto: e.target.value })} />
             </div>
             <div className="mb-3">
               <label className="form-label">Correo</label>
-              <input type="email" className="form-control" value={modal.form.correo}
+              <input type="email" className="form-control" value={modal.form.correo} maxLength={255}
                      onChange={e => setForm({ correo: e.target.value })} />
             </div>
             <div className="mb-3">

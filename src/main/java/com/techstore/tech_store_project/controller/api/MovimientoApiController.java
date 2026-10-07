@@ -1,6 +1,8 @@
 package com.techstore.tech_store_project.controller.api;
 
 import com.techstore.tech_store_project.service.MovimientoService;
+import com.techstore.tech_store_project.dto.MovimientoRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +29,7 @@ public class MovimientoApiController {
     }
 
     @PostMapping("/entradas")
-    public ResponseEntity<?> guardarEntrada(@RequestBody Map<String, Object> body, Authentication auth) {
+    public ResponseEntity<?> guardarEntrada(@Valid @RequestBody MovimientoRequest body, Authentication auth) {
         return ResponseEntity.ok(movimientoService.guardarEntrada(body, auth != null ? auth.getName() : null));
     }
 
@@ -37,7 +39,7 @@ public class MovimientoApiController {
     }
 
     @PostMapping("/salidas")
-    public ResponseEntity<?> guardarSalida(@RequestBody Map<String, Object> body, Authentication auth) {
+    public ResponseEntity<?> guardarSalida(@Valid @RequestBody MovimientoRequest body, Authentication auth) {
         return ResponseEntity.ok(movimientoService.guardarSalida(body, auth != null ? auth.getName() : null));
     }
 

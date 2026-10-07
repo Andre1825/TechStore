@@ -291,7 +291,7 @@ export default function Productos() {
                 <label className="form-label">SKU *</label>
                 <input
                   type="text" className={`form-control ${skuExiste ? 'is-invalid' : ''}`}
-                  value={modal.form.sku} required
+                  value={modal.form.sku} required maxLength={50}
                   disabled={modal.modo === 'editar'}
                   onChange={e => { setForm({ sku: e.target.value }); validarSku(e.target.value) }}
                 />
@@ -305,22 +305,22 @@ export default function Productos() {
               </div>
               <div className="col-12 col-md-7">
                 <label className="form-label">Nombre *</label>
-                <input type="text" className="form-control" value={modal.form.nombre} required
+                <input type="text" className="form-control" value={modal.form.nombre} required maxLength={150}
                        onChange={e => setForm({ nombre: e.target.value })} />
               </div>
               <div className="col-12">
                 <label className="form-label">Descripción</label>
-                <textarea className="form-control" rows={2} value={modal.form.descripcion}
+                <textarea className="form-control" rows={2} value={modal.form.descripcion} maxLength={255}
                           onChange={e => setForm({ descripcion: e.target.value })}></textarea>
               </div>
               <div className="col-6 col-md-3">
                 <label className="form-label">Precio (S/) *</label>
-                <input type="number" step="0.01" min="0" className="form-control" value={modal.form.precio} required
+                <input type="number" step="0.01" min="0" max="9999999999.99" className="form-control" value={modal.form.precio} required
                        onChange={e => setForm({ precio: e.target.value })} />
               </div>
               <div className="col-6 col-md-3">
                 <label className="form-label">Stock Mínimo</label>
-                <input type="number" min="0" className="form-control" value={modal.form.stockMinimo}
+                <input type="number" min="0" max="2147483647" step="1" required className="form-control" value={modal.form.stockMinimo}
                        onChange={e => setForm({ stockMinimo: e.target.value })} />
               </div>
               <div className="col-6 col-md-3">

@@ -32,6 +32,7 @@ public class MarcaService {
         if (marcaRepository.existsByNombreIgnoreCase(marca.getNombre())) {
             throw new ConflictoException("Ya existe una marca con ese nombre.");
         }
+        marca.setId(null);
         marca.setActiva(true);
         marcaRepository.save(marca);
         return toDto(marca);

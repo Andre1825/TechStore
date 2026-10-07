@@ -1,6 +1,9 @@
 package com.techstore.tech_store_project.controller.api;
 
 import com.techstore.tech_store_project.service.UsuarioService;
+import com.techstore.tech_store_project.dto.UsuarioCreateRequest;
+import com.techstore.tech_store_project.dto.UsuarioUpdateRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,12 +29,12 @@ public class UsuarioApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> crear(@Valid @RequestBody UsuarioCreateRequest body) {
         return ResponseEntity.ok(usuarioService.crear(body));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioUpdateRequest body) {
         return ResponseEntity.ok(usuarioService.actualizar(id, body));
     }
 

@@ -1,6 +1,8 @@
 package com.techstore.tech_store_project.controller.api;
 
 import com.techstore.tech_store_project.service.RolService;
+import com.techstore.tech_store_project.dto.RolRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,12 +38,12 @@ public class RolApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> crear(@Valid @RequestBody RolRequest body) {
         return ResponseEntity.ok(rolService.crear(body));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody RolRequest body) {
         return ResponseEntity.ok(rolService.actualizar(id, body));
     }
 }

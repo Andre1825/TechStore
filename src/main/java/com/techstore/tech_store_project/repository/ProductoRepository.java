@@ -8,10 +8,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
+import java.math.BigDecimal;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
     boolean existsBySkuIgnoreCase(String sku);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Producto p WHERE p.id = :id")
+    Optional<Producto> findByIdForUpdate(@Param("id") Long id);
 
     @Query(value = """
         SELECT p FROM Producto p LEFT JOIN p.marca m
@@ -52,5 +60,5 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     List<Object[]> countActivosByCategoria();
 
     @Query("SELECT SUM(p.precio * p.stock) FROM Producto p WHERE p.activo = true")
-    Double calcularValorInventario();
+    BigDecimal calcularValorInventario();
 }

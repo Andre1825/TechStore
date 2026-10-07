@@ -34,6 +34,7 @@ public class CategoriaService {
             throw new ConflictoException("Ya existe una categoría con ese nombre.");
         }
         long total = categoriaRepository.count() + 1;
+        categoria.setId(null);
         categoria.setCodigo(String.format("CAT-%02d", total));
         categoria.setActiva(true);
         categoriaRepository.save(categoria);

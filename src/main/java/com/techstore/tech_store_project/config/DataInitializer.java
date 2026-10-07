@@ -5,6 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
+import com.techstore.tech_store_project.service.PasswordPolicy;
+import java.math.BigDecimal;
 
 import com.techstore.tech_store_project.model.Categoria;
 import com.techstore.tech_store_project.model.Marca;
@@ -32,25 +37,43 @@ public class DataInitializer implements CommandLineRunner {
     private final MarcaRepository marcaRepository;
     private final ProductoRepository productoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final String adminPassword;
+    private final boolean seedDemoData;
+    private final Environment environment;
 
     public DataInitializer(UsuarioRepository usuarioRepository,
                            RolRepository rolRepository,
                            CategoriaRepository categoriaRepository,
                            MarcaRepository marcaRepository,
                            ProductoRepository productoRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           @Value("${techstore.bootstrap.admin-password:}") String adminPassword,
+                           @Value("${techstore.seed-demo-data:false}") boolean seedDemoData,
+                           Environment environment) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.categoriaRepository = categoriaRepository;
         this.marcaRepository = marcaRepository;
         this.productoRepository = productoRepository;
         this.passwordEncoder = passwordEncoder;
+        this.adminPassword = adminPassword;
+        this.seedDemoData = seedDemoData;
+        this.environment = environment;
     }
 
     @Override
     public void run(String... args) {
-        try { seedRoles();                                       } catch (Exception e) { log.error("seedRoles failed: {}", e.getMessage()); }
-        try { seedUsuarios();                                    } catch (Exception e) { log.error("seedUsuarios failed: {}", e.getMessage()); }
+        seedRoles();
+        seedUsuarios();
+        if (environment.acceptsProfiles(Profiles.of("prod"))) {
+            usuarioRepository.findByUsername("admin").ifPresent(admin -> {
+                if (passwordEncoder.matches("123456", admin.getPassword())) {
+                    throw new IllegalStateException("Cambia la contraseña antigua de admin desde Mi Perfil en desarrollo antes de activar prod.");
+                }
+            });
+            return;
+        }
+        if (!seedDemoData) return;
         try { seedCategorias();                                  } catch (Exception e) { log.error("seedCategorias failed: {}", e.getMessage()); }
         try { migrateCategoriaNombre("Laptops", "Computadoras", "Laptops, ultrabooks y equipos de escritorio"); } catch (Exception e) { log.warn("migrateCategoriaNombre skipped: {}", e.getMessage()); }
         try { seedMarcas();                                      } catch (Exception e) { log.error("seedMarcas failed: {}", e.getMessage()); }
@@ -86,11 +109,15 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedUsuarios() {
         if (usuarioRepository.count() > 0) return;
+        if (adminPassword.isBlank()) {
+            throw new IllegalStateException("Define ADMIN_PASSWORD para crear el administrador inicial (al menos 12 caracteres; máximo 72 bytes UTF-8).");
+        }
+        PasswordPolicy.validar(adminPassword);
         Rol rolAdmin = rolRepository.findByNombreIgnoreCase("Administrador")
                 .orElseThrow(() -> new IllegalStateException("Rol 'Administrador' no encontrado. Verifique seedRoles."));
         Usuario admin = new Usuario();
         admin.setUsername("admin");
-        admin.setPassword(passwordEncoder.encode("123456"));
+        admin.setPassword(passwordEncoder.encode(adminPassword));
         admin.setRol(rolAdmin);
         admin.setNombreCompleto("Administrador del Sistema");
         admin.setActivo(true);
@@ -248,7 +275,7 @@ public class DataInitializer implements CommandLineRunner {
         p.setSku(sku);
         p.setNombre(nombre);
         p.setDescripcion(descripcion);
-        p.setPrecio(precio);
+        p.setPrecio(BigDecimal.valueOf(precio).setScale(2));
         p.setStock(stock);
         p.setStockMinimo(stockMinimo);
         p.setCategoria(categoria);

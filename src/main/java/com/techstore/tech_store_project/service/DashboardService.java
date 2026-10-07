@@ -10,6 +10,7 @@ import com.techstore.tech_store_project.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -73,8 +74,8 @@ public class DashboardService {
         data.put("totalEntradas", movimientoRepository.countByTipo("ENTRADA"));
         data.put("totalSalidas", movimientoRepository.countByTipo("SALIDA"));
 
-        Double valorInventario = productoRepository.calcularValorInventario();
-        data.put("valorInventario", valorInventario != null ? valorInventario : 0.0);
+        BigDecimal valorInventario = productoRepository.calcularValorInventario();
+        data.put("valorInventario", valorInventario != null ? valorInventario : BigDecimal.ZERO);
 
         // RF-15: Alertas de stock bajo
         List<Producto> stockBajo = productoRepository.findProductosConStockBajo();

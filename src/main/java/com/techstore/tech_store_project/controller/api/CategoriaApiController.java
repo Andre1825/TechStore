@@ -4,6 +4,7 @@ import com.techstore.tech_store_project.model.Categoria;
 import com.techstore.tech_store_project.service.CategoriaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -27,12 +28,12 @@ public class CategoriaApiController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Categoria categoria) {
+    public ResponseEntity<?> crear(@Valid @RequestBody Categoria categoria) {
         return ResponseEntity.ok(categoriaService.crear(categoria));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Categoria cambios) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody Categoria cambios) {
         return ResponseEntity.ok(categoriaService.actualizar(id, cambios));
     }
 

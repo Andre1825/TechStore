@@ -8,11 +8,32 @@ class ApiError extends Error {
   }
 }
 
-async function request(url, options = {}) {
+let csrfPromise = null
+
+function obtenerCsrf() {
+  if (!csrfPromise) {
+    csrfPromise = fetch('/api/auth/csrf', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async res => {
+        if (res.status === 401) window.dispatchEvent(new CustomEvent('auth:expired'))
+        if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => null))
+        return res.json()
+      })
+      .catch(err => { csrfPromise = null; throw err })
+  }
+  return csrfPromise
+}
+
+async function request(url, options = {}, reintentarCsrf = true) {
   const config = {
     credentials: 'same-origin',
-    headers: {},
     ...options,
+    headers: { ...options.headers },
+  }
+
+  const modifica = !['GET', 'HEAD', 'OPTIONS'].includes((config.method || 'GET').toUpperCase())
+  if (modifica) {
+    const csrf = await obtenerCsrf()
+    config.headers[csrf.headerName] = csrf.token
   }
   if (options.body !== undefined) {
     config.headers['Content-Type'] = 'application/json'
@@ -22,7 +43,8 @@ async function request(url, options = {}) {
   const res = await fetch(url, config)
 
   // Sesión expirada o sin permisos: la SPA reacciona globalmente
-  if (res.status === 401 && !url.startsWith('/api/auth/')) {
+  if (res.status === 401 && url !== '/api/auth/login') {
+    csrfPromise = null
     window.dispatchEvent(new CustomEvent('auth:expired'))
   }
 
@@ -32,7 +54,15 @@ async function request(url, options = {}) {
     try { data = JSON.parse(text) } catch { data = null }
   }
 
+  // El servidor rechaza CSRF antes de ejecutar la operación: es seguro renovar y reintentar una vez.
+  if (res.status === 403 && data?.error === 'csrf' && modifica && reintentarCsrf) {
+    csrfPromise = null
+    return request(url, options, false)
+  }
   if (!res.ok) throw new ApiError(res.status, data)
+  if (url === '/api/auth/login' || url === '/api/auth/logout' || url === '/api/auth/password') {
+    csrfPromise = null
+  }
   return data
 }
 

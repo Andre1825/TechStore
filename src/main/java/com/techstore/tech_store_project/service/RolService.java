@@ -6,6 +6,8 @@ import com.techstore.tech_store_project.model.Usuario;
 import com.techstore.tech_store_project.repository.RolRepository;
 import com.techstore.tech_store_project.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.techstore.tech_store_project.dto.RolRequest;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,10 +21,13 @@ public class RolService {
 
     private final RolRepository rolRepository;
     private final UsuarioRepository usuarioRepository;
+    private final SessionRevocationService sessionRevocationService;
 
-    public RolService(RolRepository rolRepository, UsuarioRepository usuarioRepository) {
+    public RolService(RolRepository rolRepository, UsuarioRepository usuarioRepository,
+                      SessionRevocationService sessionRevocationService) {
         this.rolRepository = rolRepository;
         this.usuarioRepository = usuarioRepository;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     // Catálogo fijo de permisos del sistema (para pintar los checkboxes en el frontend)
@@ -49,8 +54,8 @@ public class RolService {
                 .map(r -> toDto(r, null)).toList();
     }
 
-    public Map<String, Object> crear(Map<String, Object> body) {
-        String nombre = String.valueOf(body.getOrDefault("nombre", "")).trim();
+    public Map<String, Object> crear(RolRequest body) {
+        String nombre = body.nombre().trim();
         if (nombre.isBlank()) {
             throw new IllegalArgumentException("El nombre del rol es obligatorio.");
         }
@@ -59,44 +64,28 @@ public class RolService {
         }
         Rol rol = new Rol();
         rol.setNombre(nombre);
-        rol.setDescripcion(strOrNull(body.get("descripcion")));
-        rol.setPermisos(parsePermisos(body.get("permisos")));
+        rol.setDescripcion(body.descripcion());
+        rol.setPermisos(new TreeSet<>(body.permisos()));
         rol.setActivo(true);
         rolRepository.save(rol);
         return toDto(rol, 0L);
     }
 
-    public Map<String, Object> actualizar(Long id, Map<String, Object> body) {
+    @Transactional
+    public Map<String, Object> actualizar(Long id, RolRequest body) {
         Rol rol = rolRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Rol no encontrado: " + id));
 
-        String nombre = String.valueOf(body.getOrDefault("nombre", rol.getNombre())).trim();
+        String nombre = body.nombre().trim();
         if (!rol.getNombre().equalsIgnoreCase(nombre) && rolRepository.existsByNombreIgnoreCase(nombre)) {
             throw new ConflictoException("Ya existe un rol con ese nombre.");
         }
         rol.setNombre(nombre);
-        if (body.containsKey("descripcion")) rol.setDescripcion(strOrNull(body.get("descripcion")));
-        if (body.containsKey("permisos")) rol.setPermisos(parsePermisos(body.get("permisos")));
+        rol.setDescripcion(body.descripcion());
+        rol.setPermisos(new TreeSet<>(body.permisos()));
         rolRepository.save(rol);
+        usuarioRepository.findByRolId(id).forEach(u -> sessionRevocationService.revocar(u.getUsername()));
         return toDto(rol, null);
-    }
-
-    // Convierte la lista JSON de claves en un conjunto de Permiso, ignorando valores inválidos
-    private Set<Permiso> parsePermisos(Object raw) {
-        Set<Permiso> permisos = new TreeSet<>();
-        if (raw instanceof List<?> lista) {
-            for (Object o : lista) {
-                try {
-                    permisos.add(Permiso.valueOf(String.valueOf(o)));
-                } catch (IllegalArgumentException ignored) {
-                }
-            }
-        }
-        return permisos;
-    }
-
-    private String strOrNull(Object o) {
-        return o == null ? null : String.valueOf(o);
     }
 
     private Map<String, Object> toDto(Rol r, Long usuarios) {

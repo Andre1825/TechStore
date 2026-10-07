@@ -54,7 +54,7 @@ public class ExportService {
                 cell(row, 1, p.getNombre(),                                                 rowStyle(wb, even));
                 cell(row, 2, p.getCategoria().getNombre(),                                  rowStyle(wb, even));
                 cell(row, 3, p.getMarca() != null ? p.getMarca().getNombre() : "—",         rowStyle(wb, even));
-                cell(row, 4, p.getPrecio(),                                                 priceStyle(wb, even));
+                cell(row, 4, p.getPrecio().doubleValue(),                                   priceStyle(wb, even));
                 cell(row, 5, p.getStock(),                                                  centerStyle(wb, even));
                 cell(row, 6, p.getStockMinimo() != null ? p.getStockMinimo() : 0,           centerStyle(wb, even));
                 cell(row, 7, p.isActivo() ? "Activo" : "Inactivo",                         centerStyle(wb, even));

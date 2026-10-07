@@ -37,6 +37,8 @@ public class Usuario {
 
     @Column(unique = true)
     private String correo;
+    @Column(name = "stock_alertas_activas", nullable = false, columnDefinition = "boolean default false")
+    private boolean stockAlertasActivas = false;
     @Column(name = "ultimo_acceso")
     private LocalDateTime ultimoAcceso;
 
@@ -108,6 +110,8 @@ public class Usuario {
     public void setCorreo(String correo) {
         this.correo = correo;
     }
+    public boolean isStockAlertasActivas() { return stockAlertasActivas; }
+    public void setStockAlertasActivas(boolean valor) { this.stockAlertasActivas = valor; }
     public LocalDateTime getUltimoAcceso() { return ultimoAcceso; }
     public void setUltimoAcceso(LocalDateTime ultimoAcceso) { this.ultimoAcceso = ultimoAcceso; }
 }

@@ -2,6 +2,7 @@ package com.techstore.tech_store_project.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "precio_historial")
@@ -15,11 +16,11 @@ public class PrecioHistorial {
     @JoinColumn(name = "producto_id", nullable = false)
     private Producto producto;
 
-    @Column(nullable = false)
-    private Double precioAnterior;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal precioAnterior;
 
-    @Column(nullable = false)
-    private Double precioNuevo;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal precioNuevo;
 
     @Column(nullable = false)
     private LocalDateTime fecha;
@@ -33,11 +34,11 @@ public class PrecioHistorial {
     public Producto getProducto() { return producto; }
     public void setProducto(Producto producto) { this.producto = producto; }
 
-    public Double getPrecioAnterior() { return precioAnterior; }
-    public void setPrecioAnterior(Double precioAnterior) { this.precioAnterior = precioAnterior; }
+    public BigDecimal getPrecioAnterior() { return precioAnterior; }
+    public void setPrecioAnterior(BigDecimal precioAnterior) { this.precioAnterior = precioAnterior; }
 
-    public Double getPrecioNuevo() { return precioNuevo; }
-    public void setPrecioNuevo(Double precioNuevo) { this.precioNuevo = precioNuevo; }
+    public BigDecimal getPrecioNuevo() { return precioNuevo; }
+    public void setPrecioNuevo(BigDecimal precioNuevo) { this.precioNuevo = precioNuevo; }
 
     public LocalDateTime getFecha() { return fecha; }
     public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }

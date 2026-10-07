@@ -12,9 +12,11 @@ import java.util.Map;
 public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
+    private final StockAlertService stockAlertService;
 
-    public AuthService(UsuarioRepository usuarioRepository) {
+    public AuthService(UsuarioRepository usuarioRepository, StockAlertService stockAlertService) {
         this.usuarioRepository = usuarioRepository;
+        this.stockAlertService = stockAlertService;
     }
 
     // RF-03: Devuelve el rol (nombre) y sus permisos, para que la SPA controle la UI
@@ -30,6 +32,8 @@ public class AuthService {
                     : List.of());
             me.put("nombreCompleto", u.getNombreCompleto());
             me.put("correo", u.getCorreo());
+            me.put("stockAlertasActivas", u.isStockAlertasActivas());
+            me.put("avisosStockDisponibles", stockAlertService.disponible());
             me.put("ultimoAcceso", u.getUltimoAcceso());
         }
         return me;

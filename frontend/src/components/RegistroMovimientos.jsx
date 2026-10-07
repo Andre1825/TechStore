@@ -143,7 +143,7 @@ export default function RegistroMovimientos({ tipo }) {
           </div>
           <div className="mb-3">
             <label className="form-label">Cantidad *</label>
-            <input type="number" min="1" className={`form-control ${excedeStock ? 'is-invalid' : ''}`}
+            <input type="number" min="1" max="2147483647" step="1" className={`form-control ${excedeStock ? 'is-invalid' : ''}`}
                    value={form.cantidad} required
                    onChange={e => setForm({ cantidad: e.target.value })} />
             {excedeStock && (
@@ -155,12 +155,12 @@ export default function RegistroMovimientos({ tipo }) {
           <div className="mb-3">
             <label className="form-label">Documento de referencia</label>
             <input type="text" className="form-control" placeholder={esEntrada ? 'Ej. Factura F001-123' : 'Ej. Boleta B001-456'}
-                   value={form.documentoRef}
+                   value={form.documentoRef} maxLength={100}
                    onChange={e => setForm({ documentoRef: e.target.value })} />
           </div>
           <div className="mb-3">
             <label className="form-label">Observación</label>
-            <textarea className="form-control" rows={2} value={form.observacion}
+            <textarea className="form-control" rows={2} value={form.observacion} maxLength={255}
                       onChange={e => setForm({ observacion: e.target.value })}></textarea>
           </div>
           <div className="d-flex justify-content-end gap-2">

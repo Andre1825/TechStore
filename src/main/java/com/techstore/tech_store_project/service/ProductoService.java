@@ -7,6 +7,14 @@ import com.techstore.tech_store_project.model.Producto;
 import com.techstore.tech_store_project.repository.MovimientoRepository;
 import com.techstore.tech_store_project.repository.PrecioHistorialRepository;
 import com.techstore.tech_store_project.repository.ProductoRepository;
+import com.techstore.tech_store_project.repository.CategoriaRepository;
+import com.techstore.tech_store_project.repository.MarcaRepository;
+import com.techstore.tech_store_project.dto.ProductoRequest;
+import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -18,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Validated
 public class ProductoService {
 
     private static final int PAGE_SIZE = 12;
@@ -25,13 +34,19 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
     private final PrecioHistorialRepository precioHistorialRepository;
     private final MovimientoRepository movimientoRepository;
+    private final CategoriaRepository categoriaRepository;
+    private final MarcaRepository marcaRepository;
 
     public ProductoService(ProductoRepository productoRepository,
                            PrecioHistorialRepository precioHistorialRepository,
-                           MovimientoRepository movimientoRepository) {
+                           MovimientoRepository movimientoRepository,
+                           CategoriaRepository categoriaRepository,
+                           MarcaRepository marcaRepository) {
         this.productoRepository = productoRepository;
         this.precioHistorialRepository = precioHistorialRepository;
         this.movimientoRepository = movimientoRepository;
+        this.categoriaRepository = categoriaRepository;
+        this.marcaRepository = marcaRepository;
     }
 
     // RF-08: Filtrar productos por SKU/nombre, categoría, marca y estado (paginado)
@@ -62,10 +77,11 @@ public class ProductoService {
     }
 
     // RF-05: Registrar producto validando SKU único
-    public Map<String, Object> crear(Map<String, Object> body) {
-        String sku = str(body.get("sku"));
-        if (sku.isBlank() || str(body.get("nombre")).isBlank() || body.get("categoriaId") == null) {
-            throw new IllegalArgumentException("SKU, nombre y categoría son obligatorios.");
+    @Transactional
+    public Map<String, Object> crear(@Valid ProductoRequest body) {
+        String sku = body.sku() == null ? "" : body.sku().trim();
+        if (sku.isBlank()) {
+            throw new IllegalArgumentException("El SKU es obligatorio.");
         }
         if (productoRepository.existsBySkuIgnoreCase(sku)) {
             throw new ConflictoException("Ya existe un producto con ese SKU.");
@@ -73,27 +89,28 @@ public class ProductoService {
 
         Producto p = new Producto();
         p.setSku(sku.trim());
-        p.setNombre(str(body.get("nombre")).trim());
-        p.setDescripcion(str(body.get("descripcion")));
-        p.setPrecio(dbl(body.get("precio")));
-        p.setStockMinimo(intg(body.get("stockMinimo")));
+        p.setNombre(body.nombre().trim());
+        p.setDescripcion(body.descripcion());
+        p.setPrecio(body.precio().setScale(2, RoundingMode.UNNECESSARY));
+        p.setStockMinimo(body.stockMinimo());
         p.setStock(0);
         p.setActivo(true);
-        p.setCategoria(refCategoria(body.get("categoriaId")));
-        p.setMarca(refMarca(body.get("marcaId")));
+        p.setCategoria(refCategoria(body.categoriaId()));
+        p.setMarca(refMarca(body.marcaId()));
 
         productoRepository.save(p);
         return toDto(p);
     }
 
     // RF-06: Actualizar producto manteniendo el SKU inalterable + historial de precios
-    public Map<String, Object> actualizar(Long id, Map<String, Object> body, String username) {
-        Producto existente = productoRepository.findById(id)
+    @Transactional
+    public Map<String, Object> actualizar(Long id, @Valid ProductoRequest body, String username) {
+        Producto existente = productoRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + id));
 
-        Double nuevoPrecio = dbl(body.get("precio"));
+        BigDecimal nuevoPrecio = body.precio().setScale(2, RoundingMode.UNNECESSARY);
         // RF-06: Registrar cambios de precio en historial para auditoría
-        if (!existente.getPrecio().equals(nuevoPrecio)) {
+        if (existente.getPrecio().compareTo(nuevoPrecio) != 0) {
             PrecioHistorial hist = new PrecioHistorial();
             hist.setProducto(existente);
             hist.setPrecioAnterior(existente.getPrecio());
@@ -103,32 +120,36 @@ public class ProductoService {
             precioHistorialRepository.save(hist);
         }
 
-        existente.setNombre(str(body.get("nombre")).trim());
-        existente.setDescripcion(str(body.get("descripcion")));
+        existente.setNombre(body.nombre().trim());
+        existente.setDescripcion(body.descripcion());
         existente.setPrecio(nuevoPrecio);
-        existente.setStockMinimo(intg(body.get("stockMinimo")));
-        existente.setCategoria(refCategoria(body.get("categoriaId")));
-        existente.setMarca(refMarca(body.get("marcaId")));
+        existente.setStockMinimo(body.stockMinimo());
+        existente.setCategoria(refCategoria(body.categoriaId()));
+        existente.setMarca(refMarca(body.marcaId()));
 
         productoRepository.save(existente);
         return toDto(existente);
     }
 
     // RF-07: Baja lógica — invertir estado Activo/Inactivo sin borrar el registro
+    @Transactional
     public Map<String, Object> cambiarEstado(Long id) {
-        Producto p = productoRepository.findById(id)
+        Producto p = productoRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + id));
         p.setActivo(!p.isActivo());
         productoRepository.save(p);
         return toDto(p);
     }
 
+    @Transactional
     public void eliminar(Long id) {
+        Producto p = productoRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + id));
         if (movimientoRepository.countByProductoId(id) > 0) {
             throw new ConflictoException(
                     "No se puede eliminar: el producto tiene movimientos registrados. Use la baja lógica.");
         }
-        productoRepository.deleteById(id);
+        productoRepository.delete(p);
     }
 
     // RF-05: Validación de SKU único (en vivo desde el formulario)
@@ -168,22 +189,19 @@ public class ProductoService {
         return m;
     }
 
-    private Categoria refCategoria(Object id) {
-        if (id == null) return null;
-        Categoria c = new Categoria();
-        c.setId(lng(id));
+    private Categoria refCategoria(Long id) {
+        Categoria c = categoriaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("La categoría no existe."));
+        if (!c.isActiva()) throw new IllegalArgumentException("La categoría está inactiva.");
         return c;
     }
 
-    private Marca refMarca(Object id) {
-        if (id == null || str(id).isBlank()) return null;
-        Marca mr = new Marca();
-        mr.setId(lng(id));
+    private Marca refMarca(Long id) {
+        if (id == null) return null;
+        Marca mr = marcaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("La marca no existe."));
+        if (!mr.isActiva()) throw new IllegalArgumentException("La marca está inactiva.");
         return mr;
     }
 
-    private String str(Object o) { return o == null ? "" : String.valueOf(o); }
-    private Long lng(Object o) { return o == null ? null : Long.valueOf(String.valueOf(o)); }
-    private Double dbl(Object o) { return o == null || str(o).isBlank() ? 0.0 : Double.valueOf(String.valueOf(o)); }
-    private Integer intg(Object o) { return o == null || str(o).isBlank() ? 0 : (int) Double.parseDouble(String.valueOf(o)); }
 }

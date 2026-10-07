@@ -59,6 +59,18 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const actualizarPerfil = useCallback(async datos => {
+    const me = await api.put('/api/auth/profile', datos)
+    setUser(me)
+    return me
+  }, [])
+
+  const refrescarUsuario = useCallback(async () => {
+    const me = await api.get('/api/auth/me')
+    setUser(me)
+    return me
+  }, [])
+
   // RF-03: true si el usuario tiene al menos uno de los permisos indicados
   const tienePermiso = useCallback(
     (...claves) => !!user && claves.some(c => (user.permisos || []).includes(c)),
@@ -66,7 +78,7 @@ export function AuthProvider({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, cargando, login, logout, tienePermiso }}>
+    <AuthContext.Provider value={{ user, cargando, login, logout, tienePermiso, actualizarPerfil, refrescarUsuario }}>
       {children}
     </AuthContext.Provider>
   )
