@@ -28,7 +28,7 @@ flowchart LR
     N -->|"Suscripción confirmada"| A["Correo del administrador"]
 ```
 
-Nginx termina HTTPS en EC2 y reenvía al proceso Spring Boot, que sirve React y la API. RDS conserva el catálogo y los movimientos. EC2 descarga el JAR de S3 y usa su rol IAM para publicar avisos en SNS. La [documentación de despliegue en AWS](deploy/AWS.md) detalla la red, los permisos y la validación.
+Nginx termina HTTPS en EC2 y reenvía al proceso Spring Boot, que sirve React y la API. RDS conserva el catálogo y los movimientos. EC2 descarga el JAR de S3 y usa su rol IAM para publicar avisos en SNS. La [plantilla de CloudFormation](deploy/aws/cloudformation.yaml) permite aprovisionar esta arquitectura. La [documentación de despliegue en AWS](deploy/AWS.md) explica cómo crear el stack, instalar la aplicación y validar el flujo.
 
 ## Tecnologías
 
@@ -141,6 +141,7 @@ Configura previamente `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` y, para una base si
 | Documentación | Contenido |
 |---|---|
 | [Despliegue en AWS](deploy/AWS.md) | Arquitectura, configuración de EC2/RDS/S3/SNS y verificación funcional |
+| [CloudFormation](deploy/aws/cloudformation.yaml) | VPC, grupos de seguridad, EC2, RDS PostgreSQL privado, S3, SNS cifrado y rol IAM |
 | [Plantillas AWS](deploy/aws/) | Servicio systemd, proxy Nginx, variables de ejemplo y políticas IAM/S3 |
 | [Configuración y alcance de las mejoras](deploy/MEJORAS-SEGURIDAD.md) | Bootstrap, sesiones, validaciones, verificaciones y pendientes |
 | [Despliegue en Windows Server](deploy/README-DESPLIEGUE.md) | Nginx, HTTPS y servicio con WinSW |

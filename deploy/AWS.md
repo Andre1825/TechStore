@@ -1,6 +1,6 @@
 # Despliegue de TechStore en AWS
 
-TechStore distribuye React y Spring Boot en un único JAR. La arquitectura AWS utiliza una instancia EC2 para servir la aplicación, RDS PostgreSQL para los datos, S3 para el artefacto de despliegue y SNS para las alertas de stock bajo. El repositorio contiene el código de la aplicación y las plantillas de configuración del servidor y de IAM.
+TechStore distribuye React y Spring Boot en un único JAR. La arquitectura AWS utiliza una instancia EC2 para servir la aplicación, RDS PostgreSQL para los datos, S3 para el artefacto de despliegue y SNS para las alertas de stock bajo. El repositorio contiene el código de la aplicación, la plantilla de CloudFormation y los archivos de configuración del servidor.
 
 ## Topología y decisiones
 
@@ -14,6 +14,15 @@ TechStore distribuye React y Spring Boot en un único JAR. La arquitectura AWS u
 
 La VPC ubica EC2 en una subred pública y RDS en subredes privadas. El acceso web entra por `443`. Si se habilita SSH, limita `22` a la IP de administración. La topología utiliza un servidor de aplicación y una instancia de base de datos Single-AZ.
 
+## Aprovisionar la infraestructura con CloudFormation
+
+1. En la región de AWS que usarás para TechStore, prepara un par de claves de EC2 y selecciona dos zonas de disponibilidad distintas.
+2. En CloudFormation, crea un stack y carga [cloudformation.yaml](aws/cloudformation.yaml). Indica las dos zonas, el nombre del par de claves, tu IPv4 pública en formato `/32` para SSH y la contraseña inicial de PostgreSQL. Con `WebIngressCidr` puedes restringir quién accede por HTTPS.
+3. Acepta la creación de recursos IAM. Si usas la CLI para crear el stack, declara la capacidad `CAPABILITY_IAM`.
+4. Cuando el stack llegue a `CREATE_COMPLETE`, usa `AppPublicIp` para conectarte a EC2 y configurar el DNS, `ArtifactBucketName` para publicar el JAR y `DbEndpoint`, `DbName`, `DeploymentRegion` y `StockAlertsTopicArn` para configurar el entorno.
+
+El stack aprovisiona la red, EC2, RDS privado, el bucket de artefactos, el tema SNS cifrado y el rol de la instancia. La instalación del JAR, el certificado HTTPS y la confirmación de suscripciones se completan después, como se indica abajo. Al eliminar un stack creado correctamente, CloudFormation conserva el bucket de artefactos y crea un snapshot final de RDS.
+
 ## Configuración versionada
 
 | Archivo | Uso |
@@ -26,7 +35,7 @@ La VPC ubica EC2 en una subred pública y RDS en subredes privadas. El acceso we
 
 ## Desplegar una versión
 
-1. **Preparar los recursos.** Configura la VPC, los grupos de seguridad, EC2, una base `techstore_db` en RDS, un bucket S3 privado y un tema SNS Standard. Configura el rol de la instancia con los ARN, el bucket y la región del entorno. Si el tema usa una clave KMS administrada por el cliente, autoriza también al rol en la política de la clave según la configuración del entorno.
+1. **Preparar los recursos.** Usa el stack anterior. Para una instalación manual, configura la VPC, los grupos de seguridad, EC2, la base `techstore_db` en RDS, un bucket S3 privado y un tema SNS Standard. Ajusta el rol de la instancia al bucket, al tema y a la clave KMS de ese entorno.
 2. **Empaquetar y publicar.** Ejecuta `./mvnw clean package -Pprod -DskipTests` desde la raíz. Publica `target/tech-store-project-0.0.1-SNAPSHOT.jar`, `techstore.service`, `nginx-techstore.conf` y `techstore.env.example` en el prefijo `artefactos/`. Conserva las credenciales reales en EC2.
 3. **Instalar en EC2.** Instala Java 21, Nginx y AWS CLI. Descarga los artefactos con el rol de la instancia, por ejemplo `aws s3 cp "s3://$BUCKET/artefactos/tech-store-project-0.0.1-SNAPSHOT.jar" /tmp/techstore.jar`, con `BUCKET` definido. Crea el usuario y grupo de sistema `techstore`. Instala el JAR legible por ese usuario en `/opt/techstore/techstore.jar` y la unidad en `/etc/systemd/system/techstore.service`.
 4. **Configurar el entorno y TLS.** Crea `/etc/techstore/techstore.env` desde la plantilla con propietario `root` y permisos `600`. Ajusta `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `AWS_REGION` y `SNS_TOPIC_ARN`. Define `ADMIN_PASSWORD` al iniciar con una base sin usuarios. Instala el paquete de CA de RDS en la ruta de `sslrootcert`. Copia la configuración de Nginx a `/etc/nginx/conf.d/techstore.conf` y configura el dominio y las rutas del certificado HTTPS y su clave.
