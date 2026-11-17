@@ -1,0 +1,363 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Infraestructura de TechStore en AWS (EC2, RDS PostgreSQL, S3 y SNS).
+
+Parameters:
+  PublicAvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Zona para EC2 y la primera subred privada de RDS.
+
+  SecondAvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Otra zona de la misma region para la segunda subred privada de RDS.
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Par de claves EC2 existente para instalar la aplicacion via SSH.
+
+  AdminSshCidr:
+    Type: String
+    Description: IPv4 publica del administrador en formato de host /32.
+    AllowedPattern: '([0-9]{1,3}\.){3}[0-9]{1,3}/32'
+    ConstraintDescription: Ingrese una IPv4 seguida de /32.
+
+  WebIngressCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Red IPv4 admitida por HTTPS. Utilice su IP /32 para un entorno privado de prueba.
+
+  AppInstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+
+  AppAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    MaxLength: 128
+    AllowedPattern: '[A-Za-z0-9!#$%&()*+,:;=?^_.~-]+'
+    ConstraintDescription: Use caracteres alfanumericos o simbolos del conjunto permitido.
+    Description: Contrasena inicial de PostgreSQL. Ingresela al crear el stack.
+
+Rules:
+  RequireDifferentAvailabilityZones:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Equals:
+                - !Ref PublicAvailabilityZone
+                - !Ref SecondAvailabilityZone
+        AssertDescription: Las subredes privadas de RDS deben estar en zonas distintas.
+
+Resources:
+  TechStoreVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.40.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref TechStoreVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TechStoreVpc
+      CidrBlock: 10.40.0.0/24
+      AvailabilityZone: !Ref PublicAvailabilityZone
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TechStoreVpc
+      CidrBlock: 10.40.10.0/24
+      AvailabilityZone: !Ref PublicAvailabilityZone
+      MapPublicIpOnLaunch: false
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TechStoreVpc
+      CidrBlock: 10.40.11.0/24
+      AvailabilityZone: !Ref SecondAvailabilityZone
+      MapPublicIpOnLaunch: false
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TechStoreVpc
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TechStoreVpc
+
+  PrivateSubnetARouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetBRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTTPS hacia Nginx y SSH de administracion.
+      VpcId: !Ref TechStoreVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref WebIngressCidr
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminSshCidr
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL solo desde el grupo de seguridad de la aplicacion.
+      VpcId: !Ref TechStoreVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+
+  DbSubnets:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subredes privadas para TechStore PostgreSQL.
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+
+  InventoryDatabase:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      DBInstanceClass: !Ref DbInstanceClass
+      DBSubnetGroupName: !Ref DbSubnets
+      VPCSecurityGroups:
+        - !Ref DbSecurityGroup
+      DBName: techstore_db
+      MasterUsername: techstore_owner
+      MasterUserPassword: !Ref DbPassword
+      Port: 5432
+      AllocatedStorage: '20'
+      StorageType: gp3
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      MultiAZ: false
+      PubliclyAccessible: false
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: RetainExceptOnCreate
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RequireTls
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub '${ArtifactBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+
+  AlertsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Cifrado de los avisos SNS de TechStore.
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountIamPolicies
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  StockAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      KmsMasterKeyId: !GetAtt AlertsKey.Arn
+
+  AppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: !Sub 'ec2.${AWS::URLSuffix}'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: TechStoreResources
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDeploymentArtifacts
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${ArtifactBucket.Arn}/artefactos/*'
+              - Sid: ListApplicationPrefixes
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+                Condition:
+                  StringLike:
+                    's3:prefix':
+                      - artefactos
+                      - 'artefactos/*'
+                      - backups
+                      - 'backups/*'
+              - Sid: StoreManualBackups
+                Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub '${ArtifactBucket.Arn}/backups/*'
+              - Sid: PublishAndSubscribeToStockAlerts
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                  - sns:Subscribe
+                Resource: !Ref StockAlertsTopic
+              - Sid: UseAlertsKeyThroughSns
+                Effect: Allow
+                Action:
+                  - 'kms:GenerateDataKey*'
+                  - kms:Decrypt
+                Resource: !GetAtt AlertsKey.Arn
+                Condition:
+                  StringEquals:
+                    'kms:ViaService': !Sub 'sns.${AWS::Region}.${AWS::URLSuffix}'
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref AppRole
+
+  AppInstance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - PublicDefaultRoute
+      - PublicSubnetRouteTable
+    Properties:
+      ImageId: !Ref AppAmi
+      InstanceType: !Ref AppInstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref AppSecurityGroup
+      IamInstanceProfile: !Ref AppInstanceProfile
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-app'
+
+Outputs:
+  AppInstanceId:
+    Description: Instancia EC2 donde se instala TechStore.
+    Value: !Ref AppInstance
+
+  AppPublicIp:
+    Description: IPv4 publica para administrar EC2 y configurar DNS.
+    Value: !GetAtt AppInstance.PublicIp
+
+  DbEndpoint:
+    Description: Host privado que se utiliza en DB_URL.
+    Value: !GetAtt InventoryDatabase.Endpoint.Address
+
+  DbName:
+    Description: Nombre de base de datos para JDBC.
+    Value: techstore_db
+
+  ArtifactBucketName:
+    Description: Bucket privado para el JAR y los archivos de despliegue.
+    Value: !Ref ArtifactBucket
+
+  StockAlertsTopicArn:
+    Description: Tema Standard a configurar en SNS_TOPIC_ARN.
+    Value: !Ref StockAlertsTopic
+
+  DeploymentRegion:
+    Description: Region que se configura en AWS_REGION.
+    Value: !Ref 'AWS::Region'
