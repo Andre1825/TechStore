@@ -2,7 +2,7 @@
 
 Aplicación web académica para gestionar el inventario de **STG Technology & Logistics S.A.C.** Permite administrar el catálogo, registrar entradas y salidas con Kardex, consultar indicadores y exportar datos a Excel.
 
-El frontend utiliza **React 19** y el backend **Java 21 / Spring Boot 4** con **PostgreSQL**. Incluye una integración opcional con **Amazon SNS** para avisos de stock bajo y una guía de laboratorio de cuatro horas con **EC2, RDS, S3 y SNS**.
+El frontend utiliza **React 19** y el backend **Java 21 / Spring Boot 4** con **PostgreSQL**. La arquitectura de despliegue en AWS usa **EC2** para ejecutar la aplicación, **RDS** para persistir el inventario y **S3** para almacenar el artefacto. El backend incluye una integración con **Amazon SNS** que se activa para enviar avisos de stock bajo.
 
 ## Funcionalidades
 
@@ -22,13 +22,13 @@ En desarrollo, Vite redirige `/api` y `/export` al backend. En el build de produ
 ```mermaid
 flowchart LR
     B["Navegador · React"] <-->|HTTPS| E["EC2 · Nginx + Spring Boot"]
-    E <-->|"JDBC / TLS"| R["RDS · PostgreSQL"]
-    S["S3 · JAR y archivos del laboratorio"] -.->|"Descarga durante despliegue"| E
+    E <-->|"JDBC / TLS"| R["RDS · PostgreSQL privado"]
+    S["S3 privado · Artefactos de despliegue"] -.->|"Descarga del JAR"| E
     E -->|"Evento después del commit"| N["SNS · Tema de stock bajo"]
     N -->|"Suscripción confirmada"| A["Correo del administrador"]
 ```
 
-Este diagrama representa el despliegue de la guía. S3 almacena archivos; el frontend se sirve desde EC2. Los registros del catálogo y los movimientos se guardan en PostgreSQL.
+Nginx termina HTTPS en EC2 y reenvía al proceso Spring Boot, que sirve React y la API. RDS conserva el catálogo y los movimientos. EC2 descarga el JAR de S3 y usa su rol IAM para publicar avisos en SNS. La [documentación de despliegue en AWS](deploy/AWS.md) detalla la red, los permisos y la validación.
 
 ## Tecnologías
 
@@ -38,7 +38,7 @@ Este diagrama representa el despliegue de la guía. S3 almacena archivos; el fro
 | Persistencia | Spring Data JPA, Hibernate, PostgreSQL 15 en desarrollo |
 | Frontend | React 19, Vite 6, React Router 7, Bootstrap 5, Font Awesome 6 |
 | Gráficos y reportes | Chart.js, react-chartjs-2, Apache POI |
-| AWS | SDK Java v2 para SNS; plantillas de IAM, systemd y Nginx para el laboratorio |
+| AWS | EC2, RDS PostgreSQL, S3, SNS, IAM y AWS SDK for Java v2 |
 | Herramientas | Maven Wrapper, npm con lockfile, Docker Compose para PostgreSQL local |
 
 ## Inicio local
@@ -116,7 +116,7 @@ Cambiar el correo desactiva la preferencia y exige una nueva solicitud. Los mens
 | `AWS_REGION` | Región del tema, por defecto `us-east-1` |
 | `SNS_TOPIC_ARN` | ARN de un tema SNS Standard en esa región |
 
-En EC2, el SDK utiliza las credenciales temporales del **rol IAM de la instancia**. Los permisos y la configuración se detallan en la guía AWS.
+En EC2, el SDK utiliza las credenciales temporales del **rol IAM de la instancia**. Los permisos y la configuración se detallan en el [despliegue en AWS](deploy/AWS.md).
 
 ## Compilar y desplegar
 
@@ -136,16 +136,16 @@ target/tech-store-project-0.0.1-SNAPSHOT.jar
 java -jar target/tech-store-project-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-Configura previamente `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` y, para una base sin usuarios, `ADMIN_PASSWORD`. El acceso web con `prod` requiere HTTPS; para RDS, la guía configura JDBC con TLS y verificación del certificado.
+Configura previamente `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` y, para una base sin usuarios, `ADMIN_PASSWORD`. El acceso web con `prod` requiere HTTPS. El [archivo de entorno de ejemplo](deploy/aws/techstore.env.example) configura la conexión JDBC a RDS con TLS y verificación del certificado.
 
 | Documentación | Contenido |
 |---|---|
-| [Laboratorio AWS de cuatro horas](deploy/GUIA-AWS-4-HORAS.md) | EC2 + RDS + S3 + SNS: consola, comandos, IAM, HTTPS, prueba funcional y limpieza |
-| [Plantillas AWS](deploy/aws-lab/) | Servicio systemd, proxy Nginx, variables de ejemplo y políticas IAM/S3 |
+| [Despliegue en AWS](deploy/AWS.md) | Arquitectura, configuración de EC2/RDS/S3/SNS y verificación funcional |
+| [Plantillas AWS](deploy/aws/) | Servicio systemd, proxy Nginx, variables de ejemplo y políticas IAM/S3 |
 | [Configuración y alcance de las mejoras](deploy/MEJORAS-SEGURIDAD.md) | Bootstrap, sesiones, validaciones, verificaciones y pendientes |
 | [Despliegue en Windows Server](deploy/README-DESPLIEGUE.md) | Nginx, HTTPS y servicio con WinSW |
 
-Las plantillas AWS requieren sustituir el ID de cuenta de ejemplo `123456789012`, bucket, ARN y demás marcadores por los de tu entorno. El laboratorio contempla una instancia de aplicación y RDS Single-AZ; no proporciona alta disponibilidad.
+Las plantillas se parametrizan con el bucket, los ARN y la región del entorno. La topología utiliza una instancia de aplicación y RDS Single-AZ.
 
 ## API principal
 
@@ -200,7 +200,7 @@ TechStore/
 ├── src/main/resources/  # Configuración Spring
 ├── src/test/            # Prueba de contexto
 ├── frontend/src/        # SPA React
-└── deploy/              # Guías y plantillas de despliegue
+└── deploy/              # Documentación y plantillas de despliegue
 ```
 
 ## Autores

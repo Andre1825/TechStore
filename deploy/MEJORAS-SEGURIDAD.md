@@ -25,15 +25,9 @@ Antes de arrancar esta versión contra una base existente, conserva una copia de
 - `/export/productos.xlsx` requiere `GESTIONAR_PRODUCTOS`; `/export/movimientos.xlsx` requiere `VER_MOVIMIENTOS`.
 - En `prod`, la cookie de sesión requiere HTTPS. Mantén el acceso a través del proxy HTTPS que se describe en la guía de despliegue.
 
-## Alcance del sandbox informado
-
-El PDF facilitado permite `us-east-1` y `us-west-2`. EC2 permite familias t2/t3/t3a/t4g en tamaños micro, small y medium, hasta 9 instancias y volúmenes de hasta 100 GB. RDS permite t3/t4g micro, small y medium, hasta 50 GB y sin IOPS aprovisionado. Budgets y facturación no están disponibles.
-
-API Gateway, Secrets Manager, Systems Manager y EventBridge Scheduler no aparecen en la tabla facilitada: su disponibilidad debe confirmarse antes de planificar una práctica que dependa de ellos. Estas mejoras no requieren esos servicios ni crean recursos de AWS.
-
 ## Verificación realizada
 
-La práctica con EC2, RDS, S3 y SNS se explica en [GUIA-AWS-4-HORAS.md](GUIA-AWS-4-HORAS.md). La edición de Mi Perfil guarda únicamente el nombre y correo propios. Los avisos administrativos requieren `GESTIONAR_USUARIOS`, consentimiento mediante el botón Activar y confirmación del correo en SNS. Cambiar el correo desactiva la preferencia; el filtro por destinatario evita nuevas publicaciones para direcciones antiguas.
+Consulta el [despliegue en AWS](AWS.md) para la configuración de EC2, RDS, S3 y SNS. La edición de Mi Perfil guarda únicamente el nombre y correo propios. Los avisos administrativos requieren `GESTIONAR_USUARIOS`, consentimiento mediante el botón Activar y confirmación del correo en SNS. Cambiar el correo desactiva la preferencia; el filtro por destinatario evita nuevas publicaciones para direcciones antiguas.
 
 Los avisos se procesan después de confirmar la transacción y en segundo plano. Un fallo de SNS no revierte el inventario. La cola es local y los fallos se registran: todavía no hay entrega duradera, outbox ni reintentos persistentes.
 
